@@ -31,7 +31,11 @@ namespace BGE
 		btHingeConstraint * hinge;
 		btFixedConstraint * fixed;
 
+		float force;
+
 		bool Initialise();
 		void Update(float timeDelta);
+		void MoveForward();
+		void MoveBackward();
 	};
 }

@@ -30,6 +30,7 @@ Assignment::~Assignment(void)
 bool Assignment::Initialise()
 {
 	speed = 1000;
+	force = 100000;
 
 	std::shared_ptr<GameComponent> ground = make_shared<Ground>();
 	Attach(ground);
@@ -43,36 +44,46 @@ bool Assignment::Initialise()
 	glm::vec3 wing1Pos = glm::vec3(7, 5, 10);
 	glm::vec3 wing2Pos = glm::vec3(1, 5, 10);
 	glm::vec3 headPos = glm::vec3(4, 5, 8);
-	glm::vec3 tailPos = glm::vec3(4, 5, 11);
+	glm::vec3 tailPos = glm::vec3(4, 5, 12);
 
 	//Create the shapes for each body part:
 	body = physicsFactory->CreateSphere(1.5f, bodyPos, glm::quat(), false, true);
+	body->rigidBody->activate();
 	wing1 = physicsFactory->CreateCapsule(0.5f, 0.75f, wing1Pos, glm::angleAxis(90.0f, glm::vec3(0,0,1)));
 	wing2 = physicsFactory->CreateCapsule(0.5f, 0.75f, wing2Pos, glm::angleAxis(90.0f, glm::vec3(0, 0, 1)));
 	head = physicsFactory->CreateBox(2.0f, 2.0f, 1.5f, headPos, glm::quat(), false, true);
-	tail = physicsFactory->CreateCapsule(0.1f, 0.23f, tailPos, glm::angleAxis(45.0f, glm::vec3(1,0,0)));
+	tail = physicsFactory->CreateCapsule(0.1f, 0.23f, tailPos, glm::angleAxis(22.0f, glm::vec3(1, 0, 0)));
 	//ear1 = physicsFactory->CreateCapsule;
 
 	//define the constraints:
 
 	btTransform headTransform;
 	btTransform bodyTransform;
+	btTransform tailTransform;
 	headTransform.setIdentity();
 	bodyTransform.setIdentity();
+	tailTransform.setIdentity();
 
-	// You have to make the x axis rotate to the axis you want to slide
 	headTransform.setRotation(GLToBtQuat(glm::angleAxis(0.0f, glm::vec3(0, 0, 0))));
 	bodyTransform.setRotation(GLToBtQuat(glm::angleAxis(0.0f, glm::vec3(0, 0, 0))));
+	tailTransform.setRotation(GLToBtQuat(glm::angleAxis(0.0f, glm::vec3(0, 0, 0))));
 
 	fixed = new btFixedConstraint(*body->rigidBody, *head->rigidBody, bodyTransform, headTransform);
+	dynamicsWorld->addConstraint(fixed);
 
+	fixed = new btFixedConstraint(*body->rigidBody, *tail->rigidBody, bodyTransform, tailTransform);
+	dynamicsWorld->addConstraint(fixed);
 
 	hinge = new btHingeConstraint(*body->rigidBody, *wing1->rigidBody, btVector3(1.5, 0, 0), btVector3(0, 0.75, 0), btVector3(0, 0, 1), btVector3(0, 0, 1), true);
-	hinge->enableAngularMotor(true, 50000, 0.5f);
+	hinge->enableAngularMotor(true, 30000, 0.25f);
+	hinge->setAxis(btVector3(0, 0, 1));
+	hinge->setLimit(-1, 1);
 	dynamicsWorld->addConstraint(hinge);
 
 	hinge = new btHingeConstraint(*body->rigidBody, *wing2->rigidBody, btVector3(-1.5, 0, 0), btVector3(0, -0.75, 0), btVector3(0, 0, 1), btVector3(0, 0, 1), true);
-	hinge->enableAngularMotor(true, -50000, 0.5f);
+	hinge->enableAngularMotor(true, -30000, 0.25f);
+	hinge->setAxis(btVector3(0, 0, 1));
+	hinge->setLimit(-1, 1);
 	dynamicsWorld->addConstraint(hinge);
 
 	/*
@@ -81,10 +92,6 @@ bool Assignment::Initialise()
 
 	Attach(bird1);
 	*/
-
-	//****Make other joints*********************************************************************
-
-	//fixed = new btFixedConstraint(*body->rigidBody, *head->rigidBody, ...);
 
 	if (!Game::Initialise())
 	{
@@ -110,16 +117,32 @@ void Assignment::Update(float timeDelta)
 	}
 	if (keyState[SDL_SCANCODE_UP])
 	{
-		//MOVE FORWARD
-		body->transform->Walk(timeDelta * speed);
-		//steer->AddForce(glm::vec3(0, 0, 1) * speed * timeDelta);
-		
+		MoveForward();
 	}
 	if (keyState[SDL_SCANCODE_DOWN])
 	{
-		//MOVE BACKWARDS
-		body->transform->Walk(-timeDelta * speed);
+		MoveBackward();
 	}
 
 	Game::Update(timeDelta);
+}
+
+void Assignment::MoveForward()
+{
+	btVector3 pos = GLToBtVector(body->transform->position);
+
+	//MOVE FORWARD
+	body->rigidBody->setFriction(0);
+	//body->rigidBody->applyCentralForce(GLToBtVector(body->transform->basisLook * force));
+	body->rigidBody->applyForce(btVector3(0, 0, 50), pos);
+}
+
+void Assignment::MoveBackward()
+{
+	btVector3 pos = GLToBtVector(body->transform->position);
+
+	//MOVE BACKWARDS
+	body->rigidBody->setFriction(0);
+	//body->rigidBody->applyCentralForce(GLToBtVector(-body->transform->basisLook * force));
+	body->rigidBody->applyForce(btVector3(0, 0, -50), pos);
 }
